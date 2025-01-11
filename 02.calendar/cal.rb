@@ -17,13 +17,13 @@ WDAY_US = %w[Su Mo Tu We Th Fr Sa].freeze
 
 class Calendar
   def print_cal
-    puts cal_header + '  '
+    puts "#{cal_header}  "
 
-    puts cal_weekdays + '  '
+    puts "#{cal_weekdays}  "
 
     # 1週間で分割して出力
     cal_days.each_slice(7) do |week|
-      puts week.join(' ') + '  '
+      puts "#{week.join(' ')}  "
     end
   end
 
