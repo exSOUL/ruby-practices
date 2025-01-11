@@ -66,11 +66,7 @@ class Calendar
       cal_days << format('%2d', day)
     end
 
-    if include_today?
-      today_day = @today.strftime('%2d')
-      today_index = cal_days.find_index(today_day)
-      cal_days[today_index] = "\e[7m#{today_day}\e[0m"
-    end
+    today_highlight(cal_days) if include_today?
 
     cal_days
   end
@@ -81,6 +77,13 @@ class Calendar
 
   def lang_ja?
     @lang_ja ||= (ENV['LC_ALL'] || ENV['LANG']).start_with?('ja')
+  end
+
+  def today_highlight(cal_days)
+    today_day = @today.strftime('%2d')
+    today_index = cal_days.find_index(today_day)
+    cal_days[today_index] = "\e[7m#{today_day}\e[0m"
+    cal_days
   end
 end
 
