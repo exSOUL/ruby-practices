@@ -13,6 +13,7 @@ require 'date'
 require 'optparse'
 
 WDAY_JA = %w[日 月 火 水 木 金 土].freeze
+WDAY_US = %w[Su Mo Tu We Th Fr Sa].freeze
 
 class Calendar
   def print_cal
@@ -43,11 +44,15 @@ class Calendar
   end
 
   def cal_header
-    "#{@month}月 #{@year}".center(20)
+    return "#{@month}月 #{@year}".center(20) if lang_ja?
+
+    "#{Date::MONTHNAMES[@month]} #{@year}".center(20)
   end
 
   def cal_weekdays
-    WDAY_JA.join(' ')
+    return WDAY_JA.join(' ') if lang_ja?
+
+    WDAY_US.join(' ')
   end
 
   def cal_days
@@ -72,6 +77,10 @@ class Calendar
 
   def include_today?
     @today.year == @year && @today.month == @month
+  end
+
+  def lang_ja?
+    @lang_ja ||= (ENV['LC_ALL'] || ENV['LANG']).start_with?('ja')
   end
 end
 
