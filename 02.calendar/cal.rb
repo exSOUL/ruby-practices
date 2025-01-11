@@ -1,14 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# ./cal.rb で実行できること(ruby cal.rb としなくてよいこと)
-# [rubyでコマンドを作る](https://bootcamp.fjord.jp/articles/40) を参考にしてください
-# -mで月を、-yで年を指定できる
-# ただし、-yのみ指定して一年分のカレンダーを表示する機能の実装は不要
-# 引数を指定しない場合は、今月・今年のカレンダーが表示される
-# MacやWSLに入っているcalコマンドと同じ見た目になっている
-# OSのcalコマンドと自分のcalコマンドの両方の実行結果を載せてください
-# 少なくとも1970年から2100年までは正しく表示される
 require 'date'
 require 'optparse'
 
@@ -58,14 +50,15 @@ class Calendar
     first_wday = Date.new(@year, @month, 1).wday
     last_day = Date.new(@year, @month, -1).day
 
-    # 1日の曜日が一致するように日付配列に空白を追加
+    # カレンダー上で1日の曜日が一致するように日付配列に空白を追加
     cal_days_array = Array.new(first_wday, '  ')
 
     (1..last_day).each do |day|
       cal_days_array << format('%2d', day)
     end
 
-    cal_days_array.size.upto(41) { cal_days_array << '  ' }
+    # 日付配列の要素数がカレンダーの最大マス目数7＊6の42になるように空白を追加
+    cal_days_array << '  ' until cal_days_array.size == 42
 
     today_highlight(cal_days_array) if include_today?
 
