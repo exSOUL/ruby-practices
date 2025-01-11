@@ -36,14 +36,14 @@ cal_line2 = WDAY_JA.join(' ')
 puts cal_line2
 
 # 1日までの空白を追加
-cal_daybox = Array.new(first_wday, '  ')
+cal_days = Array.new(first_wday, '  ')
 
 # 1日から月末までの日付を追加
 (1..last_day).each do |day|
-  cal_daybox << format('%2d', day)
+  cal_days << format('%2d', day)
 end
 
 # 1週間で分割して出力
-cal_daybox.each_slice(7) do |week|
+cal_days.each_slice(7) do |week|
   puts week.join(' ')
 end
