@@ -7,16 +7,27 @@ require 'optparse'
 WDAY_JA = %w[日 月 火 水 木 金 土].freeze
 WDAY_US = %w[Su Mo Tu We Th Fr Sa].freeze
 
-class Calendar
-  def print_cal
-    puts "#{cal_header}  "
+class OptionParser::InvalidcalendarMonth < OptionParser::ParseError; end
 
-    puts "#{cal_weekdays}  "
+class Calendar
+  def main
+    print print_cal
+    exit 1 if @is_error
+  end
+
+  def print_cal
+    return if @is_error
+
+    outputs = []
+    outputs << "#{cal_header}  "
+
+    outputs << "#{cal_weekdays}  "
 
     # 1週間で分割して出力
     cal_days.each_slice(7) do |week|
-      puts "#{week.join(' ')}  "
+      outputs << "#{week.join(' ')}  "
     end
+    "#{outputs.join("\n")}\n"
   end
 
   private
@@ -32,6 +43,18 @@ class Calendar
     @today = Date.today
     @month ||= @today.month
     @year ||= @today.year
+
+    valid_month?
+  rescue OptionParser::InvalidOption, OptionParser::MissingArgument, OptionParser::InvalidcalendarMonth => e
+    @is_error = true
+    warn e.message
+    warn opt.help
+  end
+
+  def valid_month?
+    return if (1..12).cover?(@month)
+
+    raise OptionParser::InvalidcalendarMonth, "invalid month: #{@month}"
   end
 
   def cal_header
@@ -81,55 +104,101 @@ class Calendar
   end
 end
 
-Calendar.new.print_cal
+Calendar.new.main
 
 require 'rspec'
 
 RSpec.describe 'calendar' do
-  context '言語設定が日本語の場合' do
-    before do
-      allow_any_instance_of(Calendar).to receive(:lang_ja?).and_return(true)
-    end
-
-    it '月の桁が1桁である1970年1月のカレンダーがcalコマンドと一致すること' do
-      ARGV.replace(['-m', '1', '-y', '1970'])
-      command_output = `LANG="ja_JP.UTF-8" cal 1 1970`
-      expect { Calendar.new.print_cal }.to output(command_output).to_stdout
-    end
-
-    it '月の桁が2桁である1970年12月のカレンダーがcalコマンドと一致すること' do
-      ARGV.replace(['-m', '12', '-y', '1970'])
-      command_output = `LANG="ja_JP.UTF-8" cal 12 1970`
-      expect { Calendar.new.print_cal }.to output(command_output).to_stdout
-    end
-
-    context '今月のカレンダーの場合' do
+  describe '#print_cal' do
+    subject { Calendar.new.print_cal }
+    context '言語設定が日本語の場合' do
       before do
-        allow(Date).to receive(:today).and_return(Date.new(2021, 7, 15))
+        allow_any_instance_of(Calendar).to receive(:lang_ja?).and_return(true)
       end
 
-      it '今月のカレンダー当日に文字反転のANSIエスケープシーケンスが設定されていること' do
-        expect { Calendar.new.print_cal }.to output(/\e\[7m15\e\[0m/).to_stdout
+      it '月の桁が1桁である1970年1月のカレンダーがcalコマンドと一致すること' do
+        ARGV.replace(['-m', '1', '-y', '1970'])
+        command_output = `LANG="ja_JP.UTF-8" cal 1 1970`
+        expect(subject).to eq command_output
+      end
+
+      it '月の桁が2桁である1970年12月のカレンダーがcalコマンドと一致すること' do
+        ARGV.replace(['-m', '12', '-y', '1970'])
+        command_output = `LANG="ja_JP.UTF-8" cal 12 1970`
+        expect(subject).to eq command_output
+      end
+
+      context '今月のカレンダーの場合' do
+        before do
+          allow(Date).to receive(:today).and_return(Date.new(2025, 1, 15))
+        end
+
+        it '今月のカレンダー当日に文字反転のANSIエスケープシーケンスが設定されていること' do
+          expect(subject).to include("\e\[7m15\e\[0m")
+        end
+      end
+
+      context '引数 -m の範囲が1から12でない場合' do
+        it '引数 -m が0の場合、エラーメッセージが表示されること' do
+          ARGV.replace(['-m', '0', '-y', '2024'])
+          expect { subject }.to output(/invalid month: 0\n/).to_stderr
+        end
+
+        it '引数 -m が13の場合、エラーメッセージが表示されること' do
+          ARGV.replace(['-m', '13', '-y', '2024'])
+          expect { subject }.to output(/invalid month: 13\n/).to_stderr
+        end
+      end
+    end
+
+    context '言語設定が日本語以外の場合' do
+      before do
+        allow_any_instance_of(Calendar).to receive(:lang_ja?).and_return(false)
+      end
+
+      it '2100年12月のカレンダーがcalコマンドと一致すること' do
+        ARGV.replace(['-m', '12', '-y', '2100'])
+        command_output = `LANG=C cal 12 2100`
+        expect(subject).to eq command_output
+      end
+
+      it 'JanuaryからDecemberまでのカレンダーがcalコマンドと一致すること' do
+        (1..12).each do |month|
+          ARGV.replace(['-m', month.to_s, '-y', '2100'])
+          command_output = `LANG=C cal #{month} 2100`
+          # subjectの文字列とcommand_outputの文字列が一致すること
+          expect(Calendar.new.print_cal).to eq command_output
+        end
       end
     end
   end
 
-  context '言語設定が日本語以外の場合' do
-    before do
-      allow_any_instance_of(Calendar).to receive(:lang_ja?).and_return(false)
+  describe '#main' do
+    subject { Calendar.new.main }
+    context '引数が指定されていない場合' do
+      before do
+        allow(Date).to receive(:today).and_return(Date.new(2024, 1, 15))
+        allow_any_instance_of(Calendar).to receive(:lang_ja?).and_return(true)
+        # calコマンドから取得した出力ではANSIエスケープシーケンスが消えてしまい
+        # 当日日付でdiffが発生するため、include_today?をfalseに設定し反転表記を無効にしている
+        allow_any_instance_of(Calendar).to receive(:include_today?).and_return(false)
+      end
+
+      it 'カレンダーがcalコマンドと一致すること' do
+        command_output = `LANG="ja_JP.UTF-8" cal 1 2024`
+        expect { subject }.to output(command_output).to_stdout
+      end
     end
 
-    it '2100年12月のカレンダーがcalコマンドと一致すること' do
-      ARGV.replace(['-m', '12', '-y', '2100'])
-      command_output = `LANG=C cal 12 2100`
-      expect { Calendar.new.print_cal }.to output(command_output).to_stdout
-    end
+    context '引数が指定されている場合' do
+      before do
+        allow_any_instance_of(Calendar).to receive(:lang_ja?).and_return(true)
+      end
 
-    it 'JanuaryからDecemberまでのカレンダーがcalコマンドと一致すること' do
-      (1..12).each do |month|
-        ARGV.replace(['-m', month.to_s, '-y', '2100'])
-        command_output = `LANG=C cal #{month} 2100`
-        expect { Calendar.new.print_cal }.to output(command_output).to_stdout
+      it '2024年1月のカレンダーがcalコマンドと一致すること' do
+        ARGV.replace(['-m', '1', '-y', '2024'])
+        command_output = `LANG="ja_JP.UTF-8" cal 1 2024`
+        expect { subject }.to output(command_output).to_stdout
       end
     end
   end
